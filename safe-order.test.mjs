@@ -1,48 +1,45 @@
-import { test } from 'node:test';
-import assert from 'node:assert';
+import { test, assert } from 'node:test';
 
 /**
- * Typeguard for Jupiter Swap V2 API response
+ * Type-guard for Jupiter Swap V2 response.
+ * Ensures we don't attempt to sign a null or empty transaction.
  */
-function isTransactionReady(response) {
+function isSwapTransactionValid(response) {
   return (
-    response.transaction !== null &&
-    response.transaction !== '' &&
-    typeof response.transaction === 'string'
+    response &&
+    typeof response.transaction === 'string' &&
+    response.transaction.length > 0
   );
 }
 
-/**
- * Mocking Jupiter Swap V2 responses for validation
- */
-test('Jupiter Swap V2 Response Typeguards', async (t) => {
-  await t.test('should identify null transaction as not ready', () => {
-    const res = { transaction: null };
-    assert.strictEqual(isTransactionReady(res), false);
+test('Jupiter Swap V2 Response Type-Guards', async (t) => {
+  await t.test('should reject null transaction', () => {
+    const res = { transaction: null, errorCode: null };
+    assert.strictEqual(isSwapTransactionValid(res), false);
   });
 
-  await t.test('should identify empty string transaction as not ready', () => {
-    const res = { transaction: '' };
-    assert.strictEqual(isTransactionReady(res), false);
+  await t.test('should reject empty string transaction', () => {
+    const res = { transaction: '', errorCode: null };
+    assert.strictEqual(isSwapTransactionValid(res), false);
   });
 
-  await t.test('should identify valid transaction as ready', () => {
-    const res = { transaction: 'AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=' };
-    assert.strictEqual(isTransactionReady(res), true);
+  await t.test('should accept valid base64 transaction', () => {
+    const res = { transaction: 'AQIDBA==', errorCode: null };
+    assert.strictEqual(isSwapTransactionValid(res), true);
   });
 
-  await t.test('should handle missing transaction field', () => {
-    const res = {};
-    assert.strictEqual(isTransactionReady(res), false);
-  });
-
-  await t.test('should validate errorCode 2 (Metis: Insufficient SOL)', () => {
-    const res = { errorCode: 2, message: 'Insufficient SOL' };
+  await t.test('should handle errorCode 2 (Insufficient SOL)', () => {
+    const res = { transaction: null, errorCode: 2, message: 'Insufficient SOL' };
+    assert.strictEqual(isSwapTransactionValid(res), false);
     assert.strictEqual(res.errorCode, 2);
   });
 
-  await t.test('should validate errorCode 2 (JupiterZ: Missing ATA)', () => {
-    const res = { errorCode: 2, message: 'Missing associated token account' };
-    assert.strictEqual(res.errorCode, 2);
+  await t.test('should handle errorCode 2 (Missing ATA)', () => {
+    const res = { transaction: null, errorCode: 2, message: 'Missing ATA' };
+    assert.strictEqual(isSwapTransactionValid(res), false);
+  });
+
+  await t.test('should handle malformed response object', () => {
+    assert.strictEqual(isSwapTransactionValid({}), false);
   });
 });

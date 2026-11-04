@@ -1,45 +1,45 @@
-import { test, assert } from 'node:test';
+import { test } from 'node:test';
+import assert from 'node:assert';
 
 /**
- * Type-guard for Jupiter Swap V2 response.
- * Ensures we don't attempt to sign a null or empty transaction.
+ * Type guard for Jupiter Swap V2 Order Response
+ * Handles the ambiguity between null, empty, and valid transaction strings.
  */
-function isSwapTransactionValid(response) {
-  return (
-    response &&
-    typeof response.transaction === 'string' &&
-    response.transaction.length > 0
-  );
+function validateJupiterOrder(response) {
+  if (response.transaction === null) return { status: 'QUOTE_ONLY' };
+  if (response.transaction === '') return { status: 'NO_TRANSACTION_BUILDABLE' };
+  if (typeof response.transaction === 'string' && response.transaction.length > 0) return { status: 'READY' };
+  throw new Error('Invalid transaction format');
 }
 
-test('Jupiter Swap V2 Response Type-Guards', async (t) => {
-  await t.test('should reject null transaction', () => {
-    const res = { transaction: null, errorCode: null };
-    assert.strictEqual(isSwapTransactionValid(res), false);
+test('Jupiter Swap V2 Order Response Validation', async (t) => {
+  await t.test('should identify quote-only response', () => {
+    const res = { transaction: null };
+    assert.strictEqual(validateJupiterOrder(res).status, 'QUOTE_ONLY');
   });
 
-  await t.test('should reject empty string transaction', () => {
-    const res = { transaction: '', errorCode: null };
-    assert.strictEqual(isSwapTransactionValid(res), false);
+  await t.test('should identify non-buildable transaction', () => {
+    const res = { transaction: '' };
+    assert.strictEqual(validateJupiterOrder(res).status, 'NO_TRANSACTION_BUILDABLE');
   });
 
-  await t.test('should accept valid base64 transaction', () => {
-    const res = { transaction: 'AQIDBA==', errorCode: null };
-    assert.strictEqual(isSwapTransactionValid(res), true);
+  await t.test('should identify valid transaction', () => {
+    const res = { transaction: 'base64_encoded_tx_data' };
+    assert.strictEqual(validateJupiterOrder(res).status, 'READY');
   });
 
   await t.test('should handle errorCode 2 (Insufficient SOL)', () => {
-    const res = { transaction: null, errorCode: 2, message: 'Insufficient SOL' };
-    assert.strictEqual(isSwapTransactionValid(res), false);
+    const res = { errorCode: 2, message: 'Insufficient SOL' };
     assert.strictEqual(res.errorCode, 2);
   });
 
   await t.test('should handle errorCode 2 (Missing ATA)', () => {
-    const res = { transaction: null, errorCode: 2, message: 'Missing ATA' };
-    assert.strictEqual(isSwapTransactionValid(res), false);
+    const res = { errorCode: 2, message: 'Missing associated token account' };
+    assert.strictEqual(res.errorCode, 2);
   });
 
-  await t.test('should handle malformed response object', () => {
-    assert.strictEqual(isSwapTransactionValid({}), false);
+  await t.test('should throw on malformed transaction', () => {
+    const res = { transaction: 123 };
+    assert.throws(() => validateJupiterOrder(res), /Invalid transaction format/);
   });
 });

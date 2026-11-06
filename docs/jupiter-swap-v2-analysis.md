@@ -1,11 +1,12 @@
 # Jupiter Swap V2 API Analysis
 
-## Response Contract Observations
-- `transaction: null`: Indicates a quote-only request or failure to build.
-- `transaction: ""`: Indicates a price quote where a transaction cannot be built (e.g., insufficient liquidity or pathing).
-- `errorCode: 2`: Observed in router responses. 
-  - Metis: Insufficient SOL for gas/fees.
-  - JupiterZ: Missing Associated Token Account (ATA) for the destination mint.
+## Response Contract: `GET /swap/v2/order`
 
-## Recommendation
-Always implement a strict typeguard before attempting to deserialize the `transaction` field to prevent runtime exceptions in the GXEON execution layer.
+### Transaction Field States
+- `transaction: null`: Indicates a quote-only response. No transaction payload is available.
+- `transaction: ""`: Indicates a price quote where the transaction cannot be built (e.g., liquidity constraints).
+- `transaction: string`: A base64 encoded transaction ready for signing.
+
+### Error Code Semantics (`errorCode: 2`)
+- `Metis`: Insufficient SOL for gas/fees.
+- `JupiterZ`: Missing Associated Token Account (ATA) for the destination mint.
